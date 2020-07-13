@@ -1,30 +1,62 @@
 #!/bin/bash
-HOST=`uname -s`
 
-if [ "$HOST" = "Linux" ]; then
-    QT_ROOT=/opt/Qt5.13.2/5.13.2/android_arm64_v8a
-    OPENCV_DIR=/home/RabbitIm/ThirdLibrary/android24_arm64_qt5.13.2_Release/sdk/native/jni
-    FFMPEG_DIR=
-    SeetaFace2_DIR=/home/SeetaFace/build_android/install
-    facedetection_DIR=
-else
-    QT_ROOT=/c/Qt/Qt5.13.2/5.13.2/android_arm64_v8a
-    #export YUV_DIR=/d/Source/libyuv/build_android/install
-    OPENCV_DIR=/c/Users/k/Downloads/android4.9_arm64/sdk/native/jni
-    FFMPEG_DIR=
-    SeetaFace2_DIR=/d/Source/SeetaFace/build_android/install
-    facedetection_DIR=/d/Source/ai/libfacedetection/build_android/install/lib/cmake
-fi
+function help()
+{
+    echo "Please set enviroment value ANDROID_NDK"
+    echo "$0 QT_ROOT ThirdLibs_DIR RabbitCommon_DIR ENABLE_DOWNLOAD"
+    exit -1
+}
 
 if [ -n "$1" ]; then
-    Qt5_ROOT=$1
+    QT_ROOT=$1
 fi
+if [ ! -f $QT_ROOT/bin/qmake ]; then
+    help
+fi
+
 if [ -n "$2" ]; then
-    ANDROID_NDK=$1
+    export ThirdLibs_DIR=$2
 fi
+if [ ! -d "$ThirdLibs_DIR" ]; then
+    help
+fi
+if [ -n "${ThirdLibs_DIR}" ]; then
+    export SeetaFace_DIR=${SeetaFace_DIR}/lib/cmake
+    export OpenCV_DIR=${ThirdLibs_DIR}/sdk/native/jni
+    export protobuf_DIR=${ThirdLibs_DIR}/lib/cmake/protobuf
+    export facedetection_DIR=${ThirdLibs_DIR}/lib/cmake/facedetection
+    export dlib_DIR=${ThirdLibs_DIR}/lib/cmake/dlib
+    export ncnn_DIR=${ThirdLibs_DIR}/lib/cmake/ncnn
+    export FFMPEG_DIR=${SeetaFace_DIR}
+    export YUV_DIR=${ThirdLibs_DIR}/lib/cmake
+fi
+
+if [ -n "$3" -a -z "$RabbitCommon_DIR" ]; then
+    RabbitCommon_DIR=$3
+fi
+
+if [ -z "$RabbitCommon_DIR" ]; then
+    RabbitCommon_DIR=`pwd`/../RabbitCommon
+fi
+
+if [ ! -d "$RabbitCommon_DIR" ]; then
+    help
+fi
+
+if [ -n "$4" ]; then
+    export ENABLE_DOWNLOAD=$4
+fi
+if [ -z "$ENABLE_DOWNLOAD" ]; then
+    export ENABLE_DOWNLOAD=OFF
+fi
+
+export RabbitCommon_DIR=$RabbitCommon_DIR
+export QT_ROOT=$QT_ROOT
+export PATH=$QT_ROOT/bin:$PATH
+ANDROID_ARM_NEON=OFF
+
 if [ -z "$ANDROID_NDK" ]; then
-    echo "$0 Qt5_ROOT ANDROID_NDK"
-    exit -1
+    help
 fi
 if [ -n "$QT_ROOT" ]; then
     PARA="${PARA} -DQt5_DIR=${QT_ROOT}/lib/cmake/Qt5
@@ -38,33 +70,47 @@ if [ -n "$QT_ROOT" ]; then
             -DQt5LinguistTools_DIR=${QT_ROOT}/lib/cmake/Qt5LinguistTools
             -DQt5AndroidExtras_DIR=${QT_ROOT}/lib/cmake/Qt5AndroidExtras"
 fi
-if [ -n "$YUV_DIR" ]; then
-    PARA="${PARA} -DYUV_DIR=${YUV_DIR}/lib/cmake"
-else
-    PARA="${PARA} -DUSE_YUV=OFF"
-fi
-if [ -n "$OPENCV_DIR" ]; then
-    PARA="${PARA} -DOpenCV_DIR=${OPENCV_DIR}"
-else
-    PARA="${PARA} -DUSE_OPENCV=OFF"
-fi
-if [ -n "$FFMPEG_DIR" ]; then
+
+if [ -d "${ThirdLibs_DIR}" ]; then
+    PARA="${PARA} -DYUV_DIR=${YUV_DIR}"
+    PARA="${PARA} -DOPENSSL_ROOT_DIR=${ThirdLibs_DIR}"
+    PARA="${PARA} -Ddlib_DIR=${ThirdLibs_DIR}/lib/cmake/dlib"
+    PARA="${PARA} -Dncnn_DIR=${ThirdLibs_DIR}/lib/cmake/ncnn"
+    PARA="${PARA} -Dfacedetection_DIR=${ThirdLibs_DIR}/lib/cmake/facedetection"
+    PARA="${PARA} -DOpenCV_DIR=${OpenCV_DIR}"
+    PARA="${PARA} -Dprotobuf_DIR=${ThirdLibs_DIR}/lib/cmake/protobuf"
     PARA="${PARA} -DFFMPEG_DIR=${FFMPEG_DIR}"
-else
+    export OPENSSL_ROOT_DIR=${ThirdLibs_DIR}
+    PARA="${PARA} -DSeetaFace_DIR=${ThirdLibs_DIR}/lib/cmake
+        -DSeetaNet_DIR=${ThirdLibs_DIR}/lib/cmake
+        -DSeetaFaceDetector_DIR=${ThirdLibs_DIR}/lib/cmake
+        -DSeetaFaceLandmarker_DIR=${ThirdLibs_DIR}/lib/cmake
+        -DSeetaFaceRecognizer_DIR=${ThirdLibs_DIR}/lib/cmake 
+        -DSeetaFaceTracker_DIR=${ThirdLibs_DIR}/lib/cmake 
+        -DSeetaQualityAssessor_DIR=${ThirdLibs_DIR}/lib/cmake "
+fi
+
+if [ -z "$FFMPEG_DIR" ]; then
     PARA="${PARA} -DUSE_FFMPEG=OFF"
 fi
-if [ -n "$SeetaFace2_DIR" ]; then
-    PARA="${PARA} -DSeetaFace_DIR=${SeetaFace2_DIR}/lib/cmake
-            -DSeetaNet_DIR=${SeetaFace2_DIR}/lib/cmake
-            -DSeetaFaceDetector_DIR=${SeetaFace2_DIR}/lib/cmake
-            -DSeetaFaceLandmarker_DIR=${SeetaFace2_DIR}/lib/cmake
-            -DSeetaFaceRecognizer_DIR=${SeetaFace2_DIR}/lib/cmake
-            -DSeetaFaceTracker_DIR=${SeetaFace2_DIR}/lib/cmake
-            -DSeetaQualityAssessor_DIR=${SeetaFace2_DIR}/lib/cmake"
+
+if [ -z "$YUV_DIR" ]; then
+    PARA="${PARA} -DUSE_YUV=OFF"
 fi
-if [ -n "facedetection_DIR" ]; then
-    PARA="${PARA} -Dfacedetection_DIR=${facedetection_DIR}"
+
+if [ -z "$OpenCV_DIR" ]; then
+    PARA="${PARA} -DUSE_OPENCV=OFF"
 fi
+
+if [ -z "$ANDROID_ABI" ]; then
+    ANDROID_ABI="arm64-v8a"
+    ANDROID_ARM_NEON=ON
+fi
+
+if [ -z "${ANDROID_PLATFORM}" ]; then
+    ANDROID_PLATFORM="android-24"
+fi
+
 echo "PARA:$PARA"
 
 if [ ! -d build_android ]; then
@@ -76,10 +122,10 @@ cmake .. -G"Unix Makefiles" -DCMAKE_INSTALL_PREFIX=`pwd`/android-build \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_VERBOSE_MAKEFILE=TRUE \
     -DCMAKE_TOOLCHAIN_FILE=${ANDROID_NDK}/build/cmake/android.toolchain.cmake \
-    -DANDROID_ABI="arm64-v8a" \
-    -DANDROID_ARM_NEON=ON \
+    -DANDROID_ABI="${ANDROID_ABI}" \
+    -DANDROID_ARM_NEON=${ANDROID_ARM_NEON} \
     -DBUILD_PERFORMANCE=ON \
-    -DANDROID_PLATFORM=android-24 ${PARA}
+    -DANDROID_PLATFORM=${ANDROID_PLATFORM} ${PARA}
 
 cmake --build . --config Release -- -j`cat /proc/cpuinfo |grep 'cpu cores' |wc -l`
 

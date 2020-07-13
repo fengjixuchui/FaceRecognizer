@@ -1,7 +1,13 @@
-project(PlugFaceLibFacedetection)
+option(USE_LIBFACEDETECTION "Use LibFacedetection" ON)
+message(STATUS "== Use LibFacedetection: ${USE_LIBFACEDETECTION}")
+if(NOT USE_LIBFACEDETECTION)
+    return()
+endif()
+
+project(PluginFaceLibFacedetection)
 
 find_package(facedetection)
-message("== Plugs libfacedetection:${facedetection_FOUND}")
+message("== Plugins libfacedetection:${facedetection_FOUND}")
 if(NOT facedetection_FOUND)
     return()
 endif()
@@ -13,13 +19,7 @@ set(HEADER_FILES
     FaceLibfacedetection.h
     DetectorLibfacedetection.h)
 
-if(ANDROID)
-    INSTALL(FILES $<TARGET_FILE:facedetection>
-        DESTINATION "libs/${ANDROID_ABI}")
-else()
-    INSTALL(FILES $<TARGET_FILE:facedetection>
-        DESTINATION "${CMAKE_INSTALL_BINDIR}")
-endif()
+INSTALL_TARGETS(TARGETS facedetection)
 
 # Install target
 set(INSTALL_PATH ${INSTALL_FACE_RECOGNIZER_PLUGS_DIR})

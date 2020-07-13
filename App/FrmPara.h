@@ -14,6 +14,11 @@ namespace Ui {
 class CFrmPara;
 }
 
+/**
+ * @brief The CFrmPara class
+ * @see CDelegateParamter
+ *      CFrmBroweFile
+ */
 class CFrmPara : public QWidget
 {
     Q_OBJECT
@@ -32,7 +37,7 @@ private:
     Ui::CFrmPara *ui;
     QStandardItemModel m_Model;
     
-    int LoadObject(QObject* pObject);  
+    QStandardItem *LoadObject(QObject* pObject, QStandardItem *pRoot = nullptr);
 };
 
 #endif // FRMPARA_H

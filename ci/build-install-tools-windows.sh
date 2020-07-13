@@ -2,7 +2,7 @@
 #下载工具  
 
 # DOWNLOAD_THIRDLIBS_URL: 第三方库的下载地址
-# QT_ROOT： 如果设置为NO，则从 http://download.qt.io/official_releases/qt 下载QT
+# DOWNLOAD_QT: TRUE 从 http://download.qt.io/official_releases/qt 下载QT
 # QT_VERSION：Qt 版本号
 # QT_VERSION_DIR：
 
@@ -35,14 +35,14 @@ function function_common()
     if [ -n "$DOWNLOAD_THIRDLIBS_URL" ]; then
         cd ${ThirdLibs_DIR}
         echo "ThirdLibs_DIR:`pwd`"
-        ThirdLibs_File=third_libs.tar.gz
+        ThirdLibs_File=third_libs.zip
         wget -c -nv --no-check-certificate $DOWNLOAD_THIRDLIBS_URL -O $ThirdLibs_File
-        tar xzf $ThirdLibs_File
+        unzip $ThirdLibs_File
     fi
 
     # Qt qt安装参见：https://github.com/benlau/qtci
     cd ${TOOLS_DIR}
-    if [ "${QT_ROOT}" = "NO" ]; then
+    if [ "$DOWNLOAD_QT" = "TRUE" ]; then
         QT_DIR=C:/projects/${APPVEYOR_PROJECT_NAME}/Tools/Qt/${QT_VERSION}
         if [ ! -d "${QT_DIR}" ]; then
             #cd ${PACKAGE_DIR}
@@ -61,17 +61,13 @@ function function_windows_msvc()
     cd ${SOURCE_DIR}
 }
 
-function function_android()
+function install_android()
 {
     cd ${TOOLS_DIR}
-    
-    #下载ANT 
-    #wget -c -nv http://apache.fayea.com//ant/binaries/apache-ant-1.10.1-bin.tar.gz
-    #tar xzf apache-ant-1.10.1-bin.tar.gz
-    #rm -f apache-ant-1.10.1-bin.tar.gz
-    #mv apache-ant-1.10.1 apache-ant
-    
-    cd ${TOOLS_DIR}
+
+    if [ -n "$1" ]; then
+        NDK="ndk-bundle"
+    fi
     
     #Download android sdk  
     if [ ! -d "${TOOLS_DIR}/android-sdk" ]; then
@@ -88,7 +84,7 @@ function function_android()
         rm android-studio-ide-${ANDROID_STUDIO_VERSION}-windows.zip
         export JAVA_HOME=${TOOLS_DIR}/android-studio/jre
         export PATH=${JAVA_HOME}/bin:$PATH
-        
+
         SDK_VERSION=4333796
         cd ${PACKAGE_DIR}
         if [ ! -f sdk-tools-windows-${SDK_VERSION}.zip ]; then
@@ -100,7 +96,7 @@ function function_android()
         mv ${PACKAGE_DIR}/sdk-tools-windows-${SDK_VERSION}.zip .
         unzip -q sdk-tools-windows-${SDK_VERSION}.zip
         rm sdk-tools-windows-${SDK_VERSION}.zip
-    
+
         echo "Install sdk and ndk ......"
         if [ -n "${ANDROID_API}" ]; then
             PLATFORMS="platforms;${ANDROID_API}"
@@ -111,17 +107,39 @@ function function_android()
             BUILD_TOOS_VERSION="28.0.3"
         fi
         (sleep 5 ; num=0 ; while [ $num -le 5 ] ; do sleep 1 ; num=$(($num+1)) ; printf 'y\r\n' ; done ) \
-        | ./tools/bin/sdkmanager.bat "platform-tools" "build-tools;${BUILD_TOOS_VERSION}" "${PLATFORMS}" "ndk-bundle"
+        | ./tools/bin/sdkmanager.bat "platform-tools" "build-tools;${BUILD_TOOS_VERSION}" "${PLATFORMS}" ${NDK}
         
         export ANDROID_SDK_ROOT=${TOOLS_DIR}/android-sdk
-        export ANDROID_NDK_ROOT=${TOOLS_DIR}/android-sdk/ndk-bundle
-        
+        if [ -n "${NDK}" ]; then
+            mv ${TOOLS_DIR}/android-sdk/ndk-bundle ${TOOLS_DIR}/android-ndk
+        fi
         cd ${TOOLS_DIR}
     fi
- 
-    function_common
     
     cd ${SOURCE_DIR}
+}
+
+function install_android_sdk_and_ndk()
+{
+    install_android
+    NDK_VERSION=r21
+    NDK_PACKAGE=android-ndk-${NDK_VERSION}-windows-x86_64.zip
+    cd ${PACKAGE_DIR}
+    if [ ! -f ${NDK_PACKAGE} ]; then
+        wget -c -nv https://dl.google.com/android/repository/${NDK_PACKAGE}
+    fi
+    echo "unzip -q ${NDK_PACKAGE} -d ${TOOLS_DIR}"
+    unzip -q ${NDK_PACKAGE} -d ${TOOLS_DIR}
+    cd ${TOOLS_DIR}
+    mv android-ndk-r21 android-ndk
+}
+
+function function_android()
+{
+    install_android_sdk_and_ndk
+    function_common
+
+    cd ${TOOLS_DIR}
 }
 
 function function_mingw()

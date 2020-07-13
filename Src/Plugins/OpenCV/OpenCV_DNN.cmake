@@ -1,28 +1,34 @@
-PROJECT(PlugFaceOpencvDNN)
+#PROJECT(PlugFaceOpencvDNN)
 
 set(SOURCES_FILES
     DetectorOpenCVDNN.cpp
-    FaceOpenCVDNN.cpp
+ #   FaceOpenCVDNN.cpp
     )
 set(HEADER_FILES
     DetectorOpenCVDNN.h
-    FaceOpenCVDNN.h
+  #  FaceOpenCVDNN.h
     )
 
-# Install target
-set(INSTALL_PATH ${INSTALL_FACE_RECOGNIZER_PLUGS_DIR})
-if(NOT ANDROID)
-    set(INSTALL_PATH ${INSTALL_FACE_RECOGNIZER_PLUGS_DIR}/Face)
+## Install target
+#set(INSTALL_PATH ${INSTALL_FACE_RECOGNIZER_PLUGS_DIR})
+#if(NOT ANDROID)
+#    set(INSTALL_PATH ${INSTALL_FACE_RECOGNIZER_PLUGS_DIR}/Face)
+#endif()
+#ADD_PLUG_TARGET(NAME ${PROJECT_NAME}
+#    SOURCES_FILES ${SOURCES_FILES}
+#    HEADER_FILES ${HEADER_FILES}
+#    LIBS ${OpenCV_LIBS}
+#    INCLUDE_DIRS ${OpenCV_INCLUDE_DIRS}
+#    DEFINITIONS OpenCV_VERSION_MAJOR=${OpenCV_VERSION_MAJOR}
+#    OUTPUT_DIR ${FACE_RECOGNIZER_PLUGS_BINARY_DIR}/Face
+#    INSTALL_DIR ${INSTALL_PATH}
+#    VERSION ${BUILD_VERSION})
+
+# Install protobuf
+find_package(protobuf)
+if(protobuf_FOUND)
+    INSTALL_TARGETS(TARGETS protobuf::libprotobuf-lite protobuf::libprotobuf protobuf::libprotoc protobuf::protoc)
 endif()
-ADD_PLUG_TARGET(NAME ${PROJECT_NAME}
-    SOURCES_FILES ${SOURCES_FILES}
-    HEADER_FILES ${HEADER_FILES}
-    LIBS ${OpenCV_LIBS}
-    INCLUDE_DIRS ${OpenCV_INCLUDE_DIRS}
-    DEFINITIONS OpenCV_VERSION_MAJOR=${OpenCV_VERSION_MAJOR}
-    OUTPUT_DIR ${FACE_RECOGNIZER_PLUGS_BINARY_DIR}/Face
-    INSTALL_DIR ${INSTALL_PATH}
-    VERSION ${BUILD_VERSION})
 
 # Install model files
 if(NOT EXISTS "${CMAKE_SOURCE_DIR}/model/Opencv")

@@ -1,5 +1,5 @@
 /**
-  @author: Kang Lin<kl222@126.com>
+  * @author: Kang Lin <kl222@126.com>
   */
 
 #include "FrmPara.h"
@@ -12,18 +12,19 @@
 #include <QMetaObject>
 #include <QMetaProperty>
 #include <QStandardItem>
+#include <QHeaderView>
 
 CFrmPara::CFrmPara(QWidget *parent) :
     QWidget(parent),
     ui(new Ui::CFrmPara)
 {
     ui->setupUi(this);
+    ui->treeView->header()->setSectionResizeMode(QHeaderView::ResizeToContents);
     ui->treeView->setModel(&m_Model);
     ui->treeView->setItemDelegateForColumn(1, new CDelegateParamter(ui->treeView));
-    bool check = connect(&m_Model, SIGNAL(itemChanged(QStandardItem *)),
-                         this, SLOT(slotItemChanged(QStandardItem*)));
-    Q_ASSERT(check);
-    slotUpdateParamter();
+    //ui->treeView->setItemDelegate(new CDelegateParamter(ui->treeView));
+
+    //slotUpdateParamter();
 }
 
 CFrmPara::~CFrmPara()
@@ -34,35 +35,81 @@ CFrmPara::~CFrmPara()
 int CFrmPara::slotUpdateParamter(QAction *pAction)
 {
     Q_UNUSED(pAction)
+    
+    CFace * pFace = CFactoryFace::Instance()->GetFace();
+    if(!pFace)
+        return -1;
+    
+    bool check = m_Model.disconnect(&m_Model, SIGNAL(itemChanged(QStandardItem*)),
+                                    this, SLOT(slotItemChanged(QStandardItem*)));
+    //Q_ASSERT(check);
     m_Model.clear();
+    
     //qDebug() << "CFrmPara::slotUpdateParamter";
     m_Model.setHorizontalHeaderLabels(QStringList() << tr("Property") << tr("Value"));
+
+    QStandardItem* pRoot = LoadObject(pFace);
     
-    LoadObject(CFactoryFace::Instance()->GetDector());
-    LoadObject(CFactoryFace::Instance()->GetLandmarker());
-    LoadObject(CFactoryFace::Instance()->GetRecognizer());
-    LoadObject(CFactoryFace::Instance()->GetTracker());
-    LoadObject(CFactoryFace::Instance()->GetFaceTools());
-    LoadObject(CFactoryFace::Instance()->GetDatabase());
+    CDetector* pDector = pFace->GetDector();
+    if(pDector)
+        LoadObject(pDector, pRoot);
+    else 
+        LoadObject(CFactoryFace::Instance()->GetDector());
+        
+    CLandmarker* pLandmarker = pFace->GetLandmarker();
+    if(pLandmarker)
+        LoadObject(pLandmarker, pRoot);
+    else
+        LoadObject(CFactoryFace::Instance()->GetLandmarker());
     
+    CRecognizer* pRecgnizer = pFace->GetRecognizer();
+    if(pRecgnizer)
+        LoadObject(pRecgnizer, pRoot);
+    else 
+        LoadObject(CFactoryFace::Instance()->GetRecognizer());
+    
+    CTracker* pTracker = pFace->GetTracker();
+    if(pTracker)
+        LoadObject(pTracker, pRoot);
+    else
+        LoadObject(CFactoryFace::Instance()->GetTracker());
+    
+    CFaceTools* pFaceTools = pFace->GetFaceTools();
+    if(pFaceTools)
+    {
+        LoadObject(pFaceTools, pRoot);
+    } else
+        LoadObject(CFactoryFace::Instance()->GetFaceTools());
+    
+    LoadObject(CFactoryFace::Instance()->GetDatabase(), pRoot);
+
+    check = connect(&m_Model, SIGNAL(itemChanged(QStandardItem *)),
+                    this, SLOT(slotItemChanged(QStandardItem*)));
+    Q_ASSERT(check);
     return 0;
 }
 
-int CFrmPara::LoadObject(QObject *pObject)
+QStandardItem* CFrmPara::LoadObject(QObject *pObject, QStandardItem *pRoot)
 {
-    int nRet = 0;
-    if(!pObject) return -1;
+    if(!pObject) return nullptr;
 
     const QMetaObject *pMO = pObject->metaObject();
 
     QStandardItem *pClass = new QStandardItem(pMO->className());
     pClass->setEditable(false);
+
+    if(!pRoot)
+    {
     m_Model.appendRow(pClass);
 #if QT_VERSION >= QT_VERSION_CHECK(5, 11, 0)
     m_Model.itemFromIndex(pClass->index().siblingAtColumn(1))->setEditable(false);
 #else
     m_Model.itemFromIndex(pClass->index().sibling(pClass->index().row(), 1))->setEditable(false);
 #endif
+    } else {
+        pRoot->appendRow(pClass);
+    }
+    
     int nCount = pMO->propertyCount();
     for(int i = 0; i < nCount; i++)
     {
@@ -71,12 +118,12 @@ int CFrmPara::LoadObject(QObject *pObject)
             continue;
 
         QString szName(p.name());
-        QStandardItem* pItem = new QStandardItem(szName);
-        pItem->setEditable(false);
-        pClass->appendRow(pItem);
+        QStandardItem* pProperty = new QStandardItem(szName);
+        pProperty->setEditable(false);
+        pClass->appendRow(pProperty);
 
         QStandardItem* pValue = new QStandardItem();
-        pClass->setChild(pItem->index().row(), 1,  pValue);
+        pClass->setChild(pProperty->index().row(), 1,  pValue);
         QVariant value = p.read(pObject);
         pValue->setData(value, Qt::EditRole);
         pValue->setEditable(p.isWritable());
@@ -126,17 +173,20 @@ int CFrmPara::LoadObject(QObject *pObject)
             continue;
         }
     }
-
-    return nRet;
+    
+    return pClass;
 }
 
 void CFrmPara::slotItemChanged(QStandardItem* item)
 {
+    qDebug() << "CFrmPara::slotItemChanged";
     QObject* pObject = item->data(CDelegateParamter::ROLE_OBJECT)
             .value<QObject*>();
     if(pObject)
+    {
         pObject->setProperty(
                 item->data(CDelegateParamter::ROLE_PROPERTY_NAME)
                     .toString().toStdString().c_str(),
                 item->data(Qt::EditRole));
+    }
 }

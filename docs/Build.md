@@ -32,15 +32,21 @@
   - [必选] Qt5_DIR: qt 安装位置(指向Qt5Config.cmake的目录，默认为 安装目录/lib/cmake/Qt5)。
                    详见：https://doc.qt.io/qt-5/cmake-get-started.html
   - [必选] RabbitCommon_DIR: RabbitCommon 源码位置
+  - [可选] CMAKE_BUILD_TYPE: 编译类型
   - [可选] BUILD_PERFORMANCE: 比较测试框架，默认 OFF
   - [可选] ENABLE_DOWNLOAD: 自动下载模型，默认 OFF
   - [可选] BUILD_APP: 编译应用程序,默认 ON
   - [可选] CMAKE_INSTALL_PREFIX: 安装前缀
-  - [可选] SeetaFace_DIR: SeetaFace 库安装位置(指向安装的 SeetaFaceConfig.cmake 目录,默认为 安装目录/lib/cmake )
-  - [可选] YUV_DIR: libyuv 库安装位置(指向安装的 YUVConfig.cmake 目录,默认为 安装目录/lib/cmake )
+  - [可选] USE_OPENCV: 使用 OpenCV
   - [可选] OpenCV_DIR: OpenCV 库安装位置(指向安装的 OpenCVConfig.cmake 目录)
   - [可选] dlib_DIR: dlib 库安装位置
+  - [可选] ncnn_DIR: ncnn 库安装位置
+  - [可选] SeetaFace_DIR: SeetaFace 库安装位置(指向安装的 SeetaFaceConfig.cmake 目录,默认为 安装目录/lib/cmake )  
   - [可选] facedetection_DIR: libfacedetection 库安装位置
+  - [可选] USE_YUV: 使用 YUV
+  - [可选] YUV_DIR: libyuv 库安装位置(指向安装的 YUVConfig.cmake 目录,默认为 安装目录/lib/cmake )
+  - [可选] USE_FFMPEG: 使用 ffmpeg
+  - [可选] FFMPEG_DIR: ffmpeg 库安装位置
 
 ### 各平台编译
 #### 下载源码
@@ -58,7 +64,9 @@
 
     git clone https://github.com/KangLin/RabbitCommon.git
 
-- 从源码编译或安装可选库
+- 从源码编译或者安装预编好的可选库
+  + 从源码下载并编译可选的依赖库
+  + [预编译好的可选库](https://github.com/KangLin/RabbitThirdLibrary/releases)，下载最后版本的。
 
 #### linux 平台编译说明
 - 编译
@@ -97,11 +105,11 @@
         ./FaceRecognizerApp
 
 #### windows 平台编译说明
-  - 使用 cmake-gui.exe 工具编译。打开 cmake-gui.exe 配置
-  - 命令行编译
-    + 把 cmake 命令所在目录加入到环境变量 PATH 中
-    + 从开始菜单打开 “VS2015开发人员命令提示”，进入命令行
-      - 编译
+
+- 命令行编译
+  + 把 cmake 命令所在目录加入到环境变量 PATH 中
+  + 从开始菜单打开 “VS2015开发人员命令提示”，进入命令行
+    - 编译
 
             cd FaceRecognizer
             mkdir build
@@ -113,21 +121,29 @@
                  [其它可选 CMake 配置参数]
             cmake --build . --config Release
 
-      - 安装
-        + 安装库和程序
+    - 安装
+      + 安装库和程序
         
-              cmake --build . --config Release --target install
+            cmake --build . --config Release --target install
         
-        + 仅安装程序
+      + 仅安装程序
         
-              cmake --build . --config Release --target install-runtime
+            cmake --build . --config Release --target install-runtime
 
-      - 运行例子
-        + 执行安装目录 bin 目录下的程序
+    - 运行例子
+      + 执行安装目录 bin 目录下的程序
 
-              cd FaceRecognizer
-              cd build/install/bin
-              FaceRecognizerApp.exe
+            cd FaceRecognizer
+            cd build/install/bin
+            FaceRecognizerApp.exe
+
+- 使用 cmake-gui.exe 工具编译。
+
+打开 cmake-gui.exe 配置。参数选择与命令行编译相同。**注意**一定要加 CMAKE_BUILD_TYPE 参数，否则会出现下面错误：
+
+
+      RabbitCommonTools.obj : error LNK2019: 无法解析的外部符号 "int __cdecl qInitResources_translations_RabbitCommon(void)" (?qInitResources_translations_RabbitCommon@@YAHXZ)，该符号在函数 "void __cdecl g_RabbitCommon_InitResource(void)" (?g_RabbitCommon_InitResource@@YAXXZ) 中被引用
+      RabbitCommonTools.obj : error LNK2019: 无法解析的外部符号 "int __cdecl qCleanupResources_translations_RabbitCommon(void)" (?qCleanupResources_translations_RabbitCommon@@YAHXZ)，该符号在函数 "void __cdecl g_RabbitCommon_CleanResource(void)" (?g_RabbitCommon_CleanResource@@YAXXZ) 中被引用
 
 #### Android 平台编译说明
 + 安装 ndk 编译工具
@@ -243,7 +259,7 @@
       有效的目标名称为：
       - armeabi：带软件浮点运算并基于 ARMv5TE 的 CPU。
       - armeabi-v7a：带硬件 FPU 指令 (VFPv3_D16) 并基于 ARMv7 的设备。
-      - armeabi-v7a with NEON：与 armeabi-v7a 相同，但启用 NEON 浮点指令。这相当于设置 -DANDROID_ABI=armeabi-v7a 和 -DANDROID_ARM_NEON=ON。
+      - armeabi-v7a with NEON：与 armeabi-v7a 相同，但启用 NEON 浮点指令。这相当于设置 -DANDROID_ABI=armeabi-v7a 和 -DANDROID_ARM_NEON=ON 。
       - arm64-v8a：ARMv8 AArch64 指令集。
       - x86：IA-32 指令集。
       - x86_64 - 用于 x86-64 架构的指令集。

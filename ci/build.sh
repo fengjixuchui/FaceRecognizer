@@ -9,6 +9,11 @@ TOOLS_DIR=${SOURCE_DIR}/Tools
 ThirdLibs_DIR=${TOOLS_DIR}/ThirdLibs
 cd ${SOURCE_DIR}
 export RabbitCommon_DIR="${SOURCE_DIR}/RabbitCommon"
+export PKG_CONFIG_PATH=${ThirdLibs_DIR}/lib/pkgconfig:${PKG_CONFIG_PATH}
+if [ -f ${ThirdLibs_DIR}/change_prefix.sh ]; then
+    cd ${ThirdLibs_DIR}
+    ./change_prefix.sh
+fi
 
 if [ -z "${ENABLE_DOWNLOAD}" ]; then
     export ENABLE_DOWNLOAD=ON
@@ -24,13 +29,13 @@ cd ${SOURCE_DIR}
 if [ "$BUILD_TARGERT" = "android" ]; then
     export ANDROID_SDK_ROOT=${TOOLS_DIR}/android-sdk
     export ANDROID_NDK_ROOT=${TOOLS_DIR}/android-ndk
-    if [ -n "$APPVEYOR" ]; then
+    #if [ -n "$APPVEYOR" ]; then
         #export JAVA_HOME="/C/Program Files (x86)/Java/jdk1.8.0"
-        if [ -z "${NDK_VERSION} " ]; then
-            NDK_VERSION=20.0.5594570
-        fi
-        export ANDROID_NDK_ROOT=${TOOLS_DIR}/android-sdk/ndk-bundle
-    fi
+    #    if [ -z "${NDK_VERSION} " ]; then
+    #        NDK_VERSION=20.0.5594570
+    #    fi
+    #    export ANDROID_NDK_ROOT=${TOOLS_DIR}/android-sdk/ndk-bundle
+    #fi
     #if [ "$TRAVIS" = "true" ]; then
         #export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
     #fi
@@ -40,12 +45,25 @@ if [ "$BUILD_TARGERT" = "android" ]; then
         export QT_ROOT=${TOOLS_DIR}/Qt/${QT_VERSION}/${QT_VERSION}/android
     else
         case $BUILD_ARCH in
-            arm*)
-                export QT_ROOT=${TOOLS_DIR}/Qt/${QT_VERSION}/${QT_VERSION}/android_armv7
+            armeabi|armeabi-v7a)
+                QT_ROOT=${TOOLS_DIR}/Qt/${QT_VERSION}/${QT_VERSION}/android_armv7
+                if [ -z "${ANDROID_ARM_NEON}" ]; then
+                    ANDROID_ARM_NEON=OFF
+                fi
+                ;;
+            "armeabi-v7a with NEON")
+                QT_ROOT=${TOOLS_DIR}/Qt/${QT_VERSION}/${QT_VERSION}/android_armv7
+                ANDROID_ARM_NEON=ON
+                ;;
+            arm64-v8a)
+                QT_ROOT=${TOOLS_DIR}/Qt/${QT_VERSION}/${QT_VERSION}/android_arm64_v8a/
                 ;;
             x86)
-            export QT_ROOT=${TOOLS_DIR}/Qt/${QT_VERSION}/${QT_VERSION}/android_x86
-            ;;
+                QT_ROOT=${TOOLS_DIR}/Qt/${QT_VERSION}/${QT_VERSION}/android_x86
+                ;;
+            x86_64)
+                QT_ROOT=${TOOLS_DIR}/Qt/${QT_VERSION}/${QT_VERSION}/android_x86_64
+                ;;
         esac
     fi
     export PATH=${TOOLS_DIR}/apache-ant/bin:$JAVA_HOME/bin:$PATH
@@ -68,7 +86,7 @@ if [ "${BUILD_TARGERT}" = "unix" ]; then
     fi
     export PATH=$QT_ROOT/bin:$PATH
     export LD_LIBRARY_PATH=$QT_ROOT/lib/i386-linux-gnu:$QT_ROOT/lib:$LD_LIBRARY_PATH
-    export PKG_CONFIG_PATH=$QT_ROOT/lib/pkgconfig:$PKG_CONFIG_PATH
+    #export PKG_CONFIG_PATH=$QT_ROOT/lib/pkgconfig:$PKG_CONFIG_PATH
 fi
 
 if [ "$BUILD_TARGERT" != "windows_msvc" ]; then
@@ -105,54 +123,48 @@ export PATH=${QT_ROOT}/bin:$PATH
 echo "PATH:$PATH"
 echo "PKG_CONFIG:$PKG_CONFIG"
 
-echo "Build SeetaFace2 ......"
-export SeetaFace2_SOURCE=${SOURCE_DIR}/../SeetaFace2
-export SeetaFace2_DIR=${SeetaFace2_SOURCE}/install
-git clone -b develop https://github.com/KangLin/SeetaFace2.git ${SeetaFace2_SOURCE}
-cd ${SeetaFace2_SOURCE}
-
-if [ -n "${STATIC}" ]; then
-    CONFIG_PARA="${CONFIG_PARA} -DBUILD_SHARED_LIBS=${STATIC}"
-fi
-echo "PWD:`pwd`"
-if [ "${BUILD_TARGERT}" = "android" ]; then
-    cmake -G"${GENERATORS}" ${SeetaFace2_SOURCE} ${CONFIG_PARA} \
-         -DCMAKE_INSTALL_PREFIX=${SeetaFace2_DIR} \
-         -DCMAKE_VERBOSE_MAKEFILE=ON \
-         -DCMAKE_BUILD_TYPE=MinSizeRel \
-         -DBUILD_EXAMPLE=OFF \
-         -DANDROID_PLATFORM=${ANDROID_API} -DANDROID_ABI="${BUILD_ARCH}" \
-         -DCMAKE_TOOLCHAIN_FILE=${ANDROID_NDK}/build/cmake/android.toolchain.cmake 
-    cmake --build . --config MinSizeRel --target install/strip
-else
-    cmake -G"${GENERATORS}" ${SeetaFace2_SOURCE} ${CONFIG_PARA} \
-         -DCMAKE_INSTALL_PREFIX=${SeetaFace2_DIR} \
-         -DCMAKE_VERBOSE_MAKEFILE=ON \
-         -DCMAKE_BUILD_TYPE=Release \
-         -DBUILD_EXAMPLE=OFF
-         
-    if [ "${BUILD_TARGERT}" = "windows_msvc" ]; then
-        cmake --build . --config Release --target install
-    else
-        cmake --build . --config Release --target install/strip
-    fi
-fi
-
 cd ${SOURCE_DIR}
 
 case ${BUILD_TARGERT} in
     windows_msvc)
         MAKE=nmake
+        if [ -d "${ThirdLibs_DIR}" ]; then
+            CONFIG_PARA="${CONFIG_PARA} -DOpenCV_DIR=${ThirdLibs_DIR}"
+        fi
         ;;
     windows_mingw)
         if [ "${RABBIT_BUILD_HOST}"="windows" ]; then
             MAKE="mingw32-make ${RABBIT_MAKE_JOB_PARA}"
+        fi
+        if [ -d "${ThirdLibs_DIR}" ]; then
+            CONFIG_PARA="${CONFIG_PARA} -DOpenCV_DIR=${ThirdLibs_DIR}"
+        fi
+        ;;
+    unix)
+        if [ -d "${ThirdLibs_DIR}" ]; then
+            CONFIG_PARA="${CONFIG_PARA} -DOpenCV_DIR=${ThirdLibs_DIR}/lib/cmake/opencv4/"
+        fi
+        ;;
+    android)
+        if [ -d "${ThirdLibs_DIR}" ]; then
+            CONFIG_PARA="${CONFIG_PARA} -DOpenCV_DIR=${ThirdLibs_DIR}/sdk/native/jni -DUSE_OPENCV=ON"
         fi
         ;;
     *)
         MAKE="make ${RABBIT_MAKE_JOB_PARA}"
         ;;
 esac
+if [ -d "${ThirdLibs_DIR}" ]; then
+    CONFIG_PARA="${CONFIG_PARA} -DYUV_DIR=${ThirdLibs_DIR}/lib/cmake -DUSE_YUV=OFF"
+    CONFIG_PARA="${CONFIG_PARA} -DOPENSSL_ROOT_DIR=${ThirdLibs_DIR}"
+    CONFIG_PARA="${CONFIG_PARA} -Ddlib_DIR=${ThirdLibs_DIR}/lib/cmake/dlib"
+    CONFIG_PARA="${CONFIG_PARA} -Dncnn_DIR=${ThirdLibs_DIR}/lib/cmake/ncnn"
+    CONFIG_PARA="${CONFIG_PARA} -Dfacedetection_DIR=${ThirdLibs_DIR}/lib/cmake/facedetection"
+    CONFIG_PARA="${CONFIG_PARA} -DFFMPEG_DIR=${ThirdLibs_DIR} -DUSE_FFMPEG=ON"
+    CONFIG_PARA="${CONFIG_PARA} -Dprotobuf_DIR=${ThirdLibs_DIR}/lib/cmake/protobuf"
+    export OPENSSL_ROOT_DIR=${ThirdLibs_DIR}
+    export SeetaFace_DIR=${ThirdLibs_DIR}
+fi
 
 if [ -n "$appveyor_build_version" -a -z "$VERSION" ]; then
     export VERSION="v0.0.4"
@@ -171,14 +183,15 @@ if [ "${BUILD_TARGERT}" = "unix" ]; then
         cat ${SOURCE_DIR}/debian/postinst
         cat ${SOURCE_DIR}/debian/preinst
     fi
-    bash build_debpackage.sh ${QT_ROOT}
+    
+    bash build_debpackage.sh ${QT_ROOT} ${ThirdLibs_DIR} ${RabbitCommon_DIR} ON
 
     sudo dpkg -i ../facerecognizer_*_amd64.deb
     echo "test ......"
     ./test/test_linux.sh
 
     #因为上面 dpgk 已安装好了，所以不需要设置下面的环境变量
-    export LD_LIBRARY_PATH=${SeetaFace2_DIR}/bin:${SeetaFace2_DIR}/lib:${QT_ROOT}/bin:${QT_ROOT}/lib:$LD_LIBRARY_PATH
+    #export LD_LIBRARY_PATH=${SeetaFace_DIR}/bin:${SeetaFace_DIR}/lib:${QT_ROOT}/bin:${QT_ROOT}/lib:$LD_LIBRARY_PATH
     
     cd debian/facerecognizer/opt
     
@@ -218,7 +231,7 @@ if [ "${BUILD_TARGERT}" = "unix" ]; then
     if [ "$TRAVIS_TAG" != "" -a "${QT_VERSION}" = "5.12.3" ]; then
         wget -c https://github.com/probonopd/uploadtool/raw/master/upload.sh
         chmod u+x upload.sh
-        ./upload.sh $SOURCE_DIR/../facerecognizer_*_amd64.deb 
+        ./upload.sh $SOURCE_DIR/../facerecognizer_*_amd64.deb
         ./upload.sh update_linux.xml update_linux_appimage.xml
         ./upload.sh FaceRecognizer_${VERSION}.tar.gz
     fi
@@ -234,16 +247,9 @@ fi
 if [ -n "${ANDROID_ARM_NEON}" ]; then
     CONFIG_PARA="${CONFIG_PARA} -DANDROID_ARM_NEON=${ANDROID_ARM_NEON}"
 fi
-if [ -d "${ThirdLibs_DIR}" ]; then
-    CONFIG_PARA="${CONFIG_PARA} -DYUV_DIR=${ThirdLibs_DIR}/lib/cmake"
-    CONFIG_PARA="${CONFIG_PARA} -DOPENSSL_ROOT_DIR=${ThirdLibs_DIR}"
-    export OPENSSL_ROOT_DIR=${ThirdLibs_DIR}
-fi
+
 echo "Build FaceRecognizer ......"
 if [ "${BUILD_TARGERT}" = "android" ]; then
-    if [ -d "${ThirdLibs_DIR}" ]; then
-        CONFIG_PARA="${CONFIG_PARA} -DOpenCV_DIR=${ThirdLibs_DIR}/sdk/native/jni"
-    fi
     cmake -G"${GENERATORS}" ${SOURCE_DIR} ${CONFIG_PARA} \
         -DCMAKE_INSTALL_PREFIX=`pwd`/android-build \
         -DENABLE_DOWNLOAD=${ENABLE_DOWNLOAD} \
@@ -261,22 +267,19 @@ if [ "${BUILD_TARGERT}" = "android" ]; then
         -DQt5Sql_DIR=${QT_ROOT}/lib/cmake/Qt5Sql \
         -DQt5LinguistTools_DIR=${QT_ROOT}/lib/cmake/Qt5LinguistTools \
         -DQt5AndroidExtras_DIR=${QT_ROOT}/lib/cmake/Qt5AndroidExtras \
-        -DSeetaFace_DIR=${SeetaFace2_DIR}/lib/cmake \
-        -DSeetaNet_DIR=${SeetaFace2_DIR}/lib/cmake \
-        -DSeetaFaceDetector_DIR=${SeetaFace2_DIR}/lib/cmake \
-        -DSeetaFaceLandmarker_DIR=${SeetaFace2_DIR}/lib/cmake \
-        -DSeetaFaceRecognizer_DIR=${SeetaFace2_DIR}/lib/cmake \
-        -DSeetaFaceTracker_DIR=${SeetaFace2_DIR}/lib/cmake \
-        -DSeetaQualityAssessor_DIR=${SeetaFace2_DIR}/lib/cmake \
+        -DSeetaFace_DIR=${SeetaFace_DIR}/lib/cmake \
+        -DSeetaNet_DIR=${SeetaFace_DIR}/lib/cmake \
+        -DSeetaFaceDetector_DIR=${SeetaFace_DIR}/lib/cmake \
+        -DSeetaFaceLandmarker_DIR=${SeetaFace_DIR}/lib/cmake \
+        -DSeetaFaceRecognizer_DIR=${SeetaFace_DIR}/lib/cmake \
+        -DSeetaFaceTracker_DIR=${SeetaFace_DIR}/lib/cmake \
+        -DSeetaQualityAssessor_DIR=${SeetaFace_DIR}/lib/cmake \
         -DANDROID_PLATFORM=${ANDROID_API} -DANDROID_ABI="${BUILD_ARCH}" \
         -DCMAKE_TOOLCHAIN_FILE=${ANDROID_NDK}/build/cmake/android.toolchain.cmake
         
     cmake --build . --config MinSizeRel -- ${RABBIT_MAKE_JOB_PARA}
     cmake --build . --config MinSizeRel --target install-runtime -- ${RABBIT_MAKE_JOB_PARA}  
 else
-    if [ -d "${ThirdLibs_DIR}" ]; then
-        CONFIG_PARA="${CONFIG_PARA} -DOpenCV_DIR=${ThirdLibs_DIR}"
-    fi
     cmake -G"${GENERATORS}" ${SOURCE_DIR} ${CONFIG_PARA} \
         -DCMAKE_INSTALL_PREFIX=`pwd`/install \
         -DCMAKE_VERBOSE_MAKEFILE=${ENABLE_DOWNLOAD} \
@@ -284,11 +287,11 @@ else
         -DBUILD_APP=ON \
         -DCMAKE_BUILD_TYPE=Release \
         -DQt5_DIR=${QT_ROOT}/lib/cmake/Qt5 \
-        -DSeetaFace_DIR=${SeetaFace2_DIR}/lib/cmake \
-        -DSeetaNet_DIR=${SeetaFace2_DIR}/lib/cmake \
-        -DSeetaFaceDetector_DIR=${SeetaFace2_DIR}/lib/cmake \
-        -DSeetaFaceLandmarker_DIR=${SeetaFace2_DIR}/lib/cmake \
-        -DSeetaFaceRecognizer_DIR=${SeetaFace2_DIR}/lib/cmake
+        -DSeetaFace_DIR=${SeetaFace_DIR}/lib/cmake \
+        -DSeetaNet_DIR=${SeetaFace_DIR}/lib/cmake \
+        -DSeetaFaceDetector_DIR=${SeetaFace_DIR}/lib/cmake \
+        -DSeetaFaceLandmarker_DIR=${SeetaFace_DIR}/lib/cmake \
+        -DSeetaFaceRecognizer_DIR=${SeetaFace_DIR}/lib/cmake
         
     cmake --build . --config Release -- ${RABBIT_MAKE_JOB_PARA}
     if [ "$TRAVIS_TAG" != "" ]; then

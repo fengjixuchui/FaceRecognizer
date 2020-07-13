@@ -1,4 +1,10 @@
-project(PlugTest)
+option(USE_TEST "Use test" OFF)
+message(STATUS "== Use test: ${USE_TEST}")
+if(NOT USE_TEST)
+    return()
+endif()
+
+project(PluginTest)
 
 set(SOURCES_FILES
     Test.cpp
